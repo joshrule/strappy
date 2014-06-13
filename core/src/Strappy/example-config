@@ -1,0 +1,11 @@
+writeLog = false
+pruneGrammar = false
+sampleByEnumeration = true
+frontierSize = 1000
+frontierSamples = 20000
+maxEvalTime = 10000
+rndSeed = 0
+lambda = 1
+pseudocounts = 1
+grApp = "0.375"
+nIters = 15

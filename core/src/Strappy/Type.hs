@@ -9,26 +9,19 @@
 
 module Strappy.Type where
 
-
 --  standard library imports
-import qualified Data.Map as M
-import Data.List (nub)
-import Control.Monad.Identity
-import Control.Monad.Trans.Class
-import Control.Monad.Error
-
-import Control.Monad.State
-import Control.Monad.Error
 import Control.DeepSeq
-
+import Control.Monad.Error
+import Control.Monad.Error
+import Control.Monad.Identity
+import Control.Monad.State
+import Control.Monad.Trans.Class
 import Data.IORef
-import System.IO.Unsafe
+import Data.List (nub)
 import Data.String (IsString)
-
-import Strappy.Response
-
 import Debug.Trace
-
+import System.IO.Unsafe
+import qualified Data.Map as M
 
 -- | A data type for polymorphic types
 data Type = TVar Int
@@ -217,8 +210,6 @@ tPair a b = TCon "(,)" [a,b]
 tTriplet a b c = TCon "(,,)" [a,b,c]
 tQuad a b c d = TCon "(,,,)" [a,b,c,d]
 tQuint a b c d e = TCon "(,,,,)" [a,b,c,d,e]
-tResponse = TCon "Response" []
-tCase a b = TCon "Case" [a,b]
 t = TVar 0                  
 t1 = TVar 1               
 t2 = TVar 2                  
@@ -257,7 +248,3 @@ instance (Typeable a, Typeable b, Typeable c) => Typeable (a, b, c) where
     typeOf _ = tTriplet (typeOf (undefined :: a)) (typeOf (undefined :: b)) (typeOf (undefined :: c))
 instance (Typeable a) => Typeable (Maybe a) where
     typeOf _ = tMaybe (typeOf (undefined :: a))
-instance Typeable (Response) where
-    typeOf _ = tResponse
--- instance (Typeable a, Typeable b) => Typeable (Case a b) where
---     typeOf _ = tCase (typeOf (undefined :: a)) (typeOf (undefined :: b))

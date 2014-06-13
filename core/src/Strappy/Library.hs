@@ -48,62 +48,62 @@ cK = Term { eName  = "K",
 
 cDualRouters = [cSS,cSB,cSC,cBS,cBB,cBC,cCS,cCB,cCC]
 
--- | cSS = (cB <> cS <> (cB <> cS))
+-- cSS = (cB <> cS <> (cB <> cS))
 cSS = Term { eName  = "SS",
              eType  = ((t2 ->- t3 ->- t1 ->- t) ->-
                       (t2 ->- t3 ->- t1) ->- t2 ->- t3 ->- t),
              eThing = (\f g x1 x2 -> (f x1 x2) (g x1 x2)) }
 
--- | cSB = (cB <> cS <> (cB <> cB))
+-- cSB = (cB <> cS <> (cB <> cB))
 cSB = Term { eName  = "SB",
              eType  = ((t2 ->- t1 ->- t) ->-
                       (t2 ->- t3 ->- t1) ->- t2 ->- t3 ->- t),
              eThing = (\f g x1 x2 -> (f x1) (g x1 x2)) }
 
--- | cSC = (cB <> cS <> (cB <> cC))
+-- cSC = (cB <> cS <> (cB <> cC))
 cSC = Term { eName  = "SC",
              eType  = ((t3 ->- t1 ->- t2 ->- t) ->-
                        (t3 ->- t2) ->- t3 ->- t1 ->- t),
              eThing = (\f g x1 x2 -> (f x1 x2) (g x1)) }
 
--- | cBS = (cB <> cB <> cS)
+-- cBS = (cB <> cB <> cS)
 cBS = Term { eName  = "BS",
              eType  = ((t3 ->- t1 ->- t) ->-
                       (t2 ->- t3 ->- t1) ->- t2 ->- t3 ->- t),
              eThing = (\f g x1 x2 -> (f x2) (g x1 x2)) }
 
--- | cBB = (cB <> cB <> cB)
+-- cBB = (cB <> cB <> cB)
 cBB = Term { eName  = "BB",
              eType  = ((t1 ->- t) ->- (t2 ->- t3 ->- t1) ->- t2 ->- t3 ->- t),
              eThing = (\f g x1 x2 -> f (g x1 x2)) }
 
--- | cBC = (cB <> cB <> cC)
+-- cBC = (cB <> cB <> cC)
 cBC = Term { eName  = "BC",
              eType  = ((t1 ->- t2 ->- t) ->- (t3 ->- t2) ->- t3 ->- t1 ->- t),
              eThing = (\f g x1 x2 -> (f x2) (g x1)) }
 
--- | cCS = (cB <> cC <> (cB <> cS))
+-- cCS = (cB <> cC <> (cB <> cS))
 cCS = Term { eName  = "CS",
              eType  = ((t1 ->- t3 ->- t2 ->- t) ->-
                       (t3 ->- t2) ->- t1 ->- t3 ->- t),
              eThing = (\f g x1 x2 -> (f x1 x2) (g x2)) }
 
--- | cCB = (cB <> cC <> (cB <> cB))
+-- cCB = (cB <> cC <> (cB <> cB))
 cCB = Term { eName  = "CB",
              eType  = ((t1 ->- t2 ->- t) ->- (t3 ->- t2) ->- t1 ->- t3 ->- t),
              eThing = (\f g x1 x2 -> (f x1) (g x2)) }
 
--- | cCC = (cB <> cC <> (cB <> cC))
+-- cCC = (cB <> cC <> (cB <> cC))
 cCC = Term { eName  = "CC",
              eType  = ((t1 ->- t2 ->- t3 ->- t) ->- t3 ->- t1 ->- t2 ->- t),
              eThing = (\f g x1 x2 -> (f x1 x2) (g)) }
 
--- | Bottom
+-- Bottom
 cBottom = Term { eName  = "_|_",
                  eType  = (TVar 0),
                  eThing = (error "cBottom: this should never be called!") }
 
--- | Holes
+-- Holes
 cHole = Term { eName  = "H",
                eType  = tDouble,
                eThing = (error "Attempt to evaluate a hole") }
@@ -279,6 +279,10 @@ cJust = Term { eName  = "Just",
 cNothing = Term { eName  = "Nothing",
                   eType  = (tMaybe t),
                   eThing = Nothing } 
+
+safeFromJust :: a -> Maybe a -> a
+safeFromJust def Nothing  = def
+safeFromJust def (Just x) = x
 
 cFromJust = Term { eName  = "fromJust",
                    eType  = (tMaybe t ->- t),

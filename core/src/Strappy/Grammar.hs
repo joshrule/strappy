@@ -6,7 +6,7 @@
 -- Maintainer:  Eyal Dechter <edechter@mit.edu>
 -- Stability:   experimental
 --
--- This module defines data types and methods for distributions over
+-- | This module defines data types and methods for distributions over
 -- expressions. Distributions are specified as weighted grammars.
 
 module Strappy.Grammar (
@@ -17,6 +17,7 @@ module Strappy.Grammar (
   logLikelihoodExpr,
   -- * ExprMap        
   ExprMap,
+  ExprDistr,
   showExprDistr,
      ) where
 
@@ -93,6 +94,24 @@ logLikelihoodExpr gr@(Grammar gamma _) tp expr = do
   llApp <- logLikelihoodApp gr tp expr
   let logpNoApp = log (1 - exp gamma)
   return $ logSumExp ( logpNoApp + llPrim) (llApp + gamma)
+
+-- TODO: Rewrite using current Expr type
+-- -- | the log probability of the given expression under the given grammar.
+-- -- This doesn't take into account type information when computing likelihoods
+-- pcfgLogLikelihood :: Grammar   -- ^ the source grammar
+--                      -> Expr   -- ^ the hypothetically produced expression
+--                      -> Double -- ^ the computed log likelihood
+-- pcfgLogLikelihood (Grammar { grExprDistr = distr }) e@(Term { }) = e { eLogLikelihood = Just (distr Map.! e) }
+-- pcfgLogLikelihood gr@(Grammar { grExprDistr = distr, grApp = app }) e@(App { eLeft = l, eRight = r }) =
+--   let l' = pcfgLogLikelihood gr l
+--       r' = pcfgLogLikelihood gr r
+--       lLL = fromJust $ eLogLikelihood l'
+--       rLL = fromJust $ eLogLikelihood r'
+--       eLL = logSumExp (app + lLL + rLL)
+--                       (case Map.lookup e distr of
+--                           Nothing -> log 0.0
+--                           Just p -> p)
+--   in e { eLeft = l', eRight = r', eLogLikelihood = Just eLL }
   
 
 -- | Return the loglikelihood of returning a given primitive from the

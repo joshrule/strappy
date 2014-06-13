@@ -16,6 +16,7 @@
 module Strappy.Expr (
   -- * Types
   Expr(..),
+  Library(..),
   -- * Constructors
   (<>),
   (<.>),
@@ -95,6 +96,8 @@ instance Hashable Expr where
     hashWithSalt a (Term { eName = name }) = hash a `hashWithSalt` hash name                                                   
     hashWithSalt a (App { eLeft = left, eRight = right }) = 
       hash a `hashWithSalt` hash left `hashWithSalt` hash right
+
+type Library = [Expr]
              
 -- | Expression Constructors | -------------------------------------------------
 
