@@ -280,10 +280,6 @@ cNothing = Term { eName  = "Nothing",
                   eType  = (tMaybe t),
                   eThing = Nothing } 
 
-safeFromJust :: a -> Maybe a -> a
-safeFromJust def Nothing  = def
-safeFromJust def (Just x) = x
-
 cFromJust = Term { eName  = "fromJust",
                    eType  = (tMaybe t ->- t),
                    eThing = (\ x -> safeFromJust "(cFromJust cNothing)" x) }
@@ -313,3 +309,8 @@ basicExprs = cBasicRouters ++
              cChars        ++
              cBools        ++
              [cHole]
+
+-- Misc
+safeFromJust :: String -> Maybe a -> a
+safeFromJust str Nothing = error str
+safeFromJust _ (Just x)  = x
