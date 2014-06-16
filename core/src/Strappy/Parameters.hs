@@ -35,13 +35,21 @@ import Strappy.Task
 -- | Parameter keys are strings.
 type PLabel = String
 
--- | Parameter values can be one of several types.
+-- | Parameter values can be one of several types. They're our internal
+-- representation of configuration data, allowing us to use a single map from
+-- PLabels to PValues which actually carries several types of data.
 data PValue = PDouble Double
             | PBool Bool
             | PRational Rational
             | PString String
             | PTaskSet TaskSet
             | PLibrary Library
+
+-- | A full set of Parameters is just a key-value map.
+type Parameters = Map.Map PLabel PValue
+
+-- These wrapper functions are needed to extract the base Haskell types from
+-- a Parameters map. They aren't used here but are used in, say, Simulation.hs.
 
 -- | Extract A Double from a PDouble.
 fromPDouble :: PValue -> Maybe Double
@@ -73,9 +81,6 @@ fromPLibrary :: PValue -> Maybe Library
 fromPLibrary (PLibrary l) = Just l
 fromPLibrary _            = Nothing
 
--- | A full set of Parameters is just a key-value map.
-type Parameters = Map.Map PLabel PValue
-
 -- | Translate Configurator Values to Parameters PValues.
 cValueToPValue :: Maybe Value -> Maybe PValue
 cValueToPValue (Just (Bool   b)) = Just (PBool b)
@@ -96,6 +101,8 @@ configToParameters config params =
             return $ maybe p 
                            (\x -> Map.insert k x p)
                            (grAppHack k $ cValueToPValue $ searchResult)
+        -- configurator only allows integer numbers, so we need to read
+        -- rationals if we want to use them.
         grAppHack "grApp" (Just (PString s)) = Just (PDouble (read s))
         grAppHack _ x = x
     in return params                     >>= 
