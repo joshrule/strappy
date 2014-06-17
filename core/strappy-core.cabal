@@ -74,6 +74,9 @@ library
   -- Other library packages from which modules are imported.
   build-depends: base,
                  containers,
+                 aeson            >= 0.7.0.6,
+                 aeson-pretty     >= 0.7.1,
+                 bytestring       >= 0.10.0.2,
                  configurator     >= 0.2.0.2,
                  HUnit            >= 1.2.5.2,
                  MaybeT           >= 0.1.2,
@@ -85,6 +88,7 @@ library
                  directory        >= 1.2.0.1,
                  ghc-prim         >= 0.3.0.0,
                  hashable         >= 1.1.2.5,
+                 lens             >= 4.2,
                  mtl              >= 2.1.2, 
                  parsec           >= 3.1.5,
                  pipes            >= 4.1.0,

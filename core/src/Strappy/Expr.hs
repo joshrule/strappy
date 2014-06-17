@@ -46,17 +46,19 @@ module Strappy.Expr (
   ) where
 
 -- | External Imports | --------------------------------------------------------
-import Unsafe.Coerce (unsafeCoerce)
-import Control.Monad
-import Data.Hashable
-import Control.Exception
-import Control.Monad.Error.Class
-import System.IO.Unsafe
 import Control.Concurrent.Timeout (timeout)
-import Data.Timeout (Timeout(..))
-import Data.String (IsString)
+import Control.Exception
+import Control.Monad
+import Control.Monad.Error.Class
 import Criterion (nf, run)
+import Data.Hashable
+import Data.String (IsString)
+import qualified Data.Text as T
+import Data.Timeout (Timeout(..))
 import Data.Word
+import System.IO.Unsafe
+import Unsafe.Coerce (unsafeCoerce)
+import qualified Data.Aeson as A
 
 -- | Strappy Imports | ---------------------------------------------------------
 import Strappy.Type
@@ -96,6 +98,9 @@ instance Hashable Expr where
     hashWithSalt a (Term { eName = name }) = hash a `hashWithSalt` hash name                                                   
     hashWithSalt a (App { eLeft = left, eRight = right }) = 
       hash a `hashWithSalt` hash left `hashWithSalt` hash right
+
+instance A.ToJSON Expr where
+  toJSON e = A.String $ T.pack (show e)
 
 type Library = [Expr]
              

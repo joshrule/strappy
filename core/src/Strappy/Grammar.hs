@@ -41,6 +41,8 @@ import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Directory
 import Data.String (IsString)
 import Control.Monad.Error.Class
+import qualified Data.Aeson as A
+import qualified Data.Text as T
 
 -- Strappy imports -- 
 import Strappy.Type
@@ -69,12 +71,24 @@ data Grammar = Grammar {grApp :: Double,         -- ^ log probability of applica
 instance Show Grammar where
   show (Grammar p exprDistr) = printf "%7s:%7.2f\n" "p" (exp p) ++ showExprDistr exprDistr
 
+instance A.ToJSON Grammar where
+  toJSON (Grammar pApp exprDistr) = 
+      let strMap = Map.fromList (map (\(a,b) -> ((show a),b)) $ Map.toList exprDistr)
+      in A.object [ "grApp"     A..= pApp,
+                    "grLibrary" A..= strMap ]
+
 -- | Normalizes both the application and expression distribution
 -- fields of the grammar.
-normalizeGrammar :: Grammar -> Grammar 
-normalizeGrammar gr@Grammar{grExprDistr=distr} =
-  let distr' = Map.fromList $ normalizeDist $ Map.toList distr
+normalizeGrammar :: Grammar -> Grammar
+normalizeGrammar gr@Grammar{grApp=p, grExprDistr=distr} =
+  let logTotalMass = logSumExpList $ Map.elems distr
+      distr' = Map.map (\x -> x - logTotalMass) distr
   in gr { grExprDistr = distr' }
+-- relies on non-existent function
+--  normalizeGrammar :: Grammar -> Grammar 
+--  normalizeGrammar gr@Grammar{grExprDistr=distr} =
+--    let distr' = Map.fromList $ normalizeDist $ Map.toList distr
+--    in gr { grExprDistr = distr' }
 
 
 -- | Return the primitives in the grammar that unify with a given

@@ -7,146 +7,124 @@
 -- Stability:   experimental
 --
 -- | Dynamic configuration support for Strappy simulations
+
+{-# LANGUAGE TemplateHaskell #-}
 module Strappy.Parameters (
     -- * Types
-    PLabel(..),
-    PValue(..),
     Parameters(..),
     -- * Conversion
     loadConfig,
     configToParameters,
-    -- * Extraction
-    fromPDouble,
-    fromPBool,
-    fromPRational,
-    fromPString,
-    fromPTaskSet,
-    fromPLibrary
+    -- * access
+    writeLog,
+    pruneGrammar,
+    sampleByEnumeration,
+    frontierSize,
+    frontierSamples,
+    maxEvalTime,
+    rndSeed,
+    lambda,
+    pseudocounts,
+    grApp,
+    nIters,
+    prefix,
+    grLibrary,
+    tasks
     ) where
 
+-- External imports --
+import qualified Control.Lens as L
+import           Control.Lens.TH
 import qualified Data.Configurator as C
-import Data.Configurator.Types
-import qualified Data.Map as Map
-import Data.Text
+import qualified Data.Configurator.Types as CT
+import           Data.Text
+import           Data.Word
 
+-- Strappy imports --
 import Strappy.Expr
 import Strappy.Task
 
--- | Parameter keys are strings.
-type PLabel = String
+-- | Parameters is a product type holding configuration data for Strappy.
+data Parameters = Parameters {
+    -- (T) log output (grammars, etc), (F) don't log
+    _writeLog :: Bool,
+    -- (T) prune grammar to search more frontier with less accuracy, (F) don't
+    _pruneGrammar :: Bool,
+    -- (T) sample by enumeration, (F) sample by true sampling
+    _sampleByEnumeration :: Bool,
+    -- Max size of the frontier enumerated during the "E" step
+    _frontierSize :: Int,
+    -- Maximum number of samples drawn from the grammar
+    _frontierSamples :: Int,
+    -- Timeout for evaluations (in nanoseconds)
+    _maxEvalTime :: Word64,
+    -- the random seed
+    _rndSeed :: Int,
+    -- lambda, the threshold productions must pass to be saved
+    _lambda :: Double,
+    -- pseudocounts for productions in the grammar
+    _pseudocounts :: Int,
+    -- Probability of an application in the seed grammar
+    _grApp :: Double,
+    -- The number of iterations to run
+    _nIters :: Int,
+    -- directory in which to log all output
+    _prefix :: FilePath,
+    -- the library of primitives in the seed grammar
+    _grLibrary :: Library,
+    -- all the tasks Strappy should attempt to hit
+    _tasks :: TaskSet }
 
--- | Parameter values can be one of several types. They're our internal
--- representation of configuration data, allowing us to use a single map from
--- PLabels to PValues which actually carries several types of data.
-data PValue = PDouble Double
-            | PBool Bool
-            | PRational Rational
-            | PString String
-            | PTaskSet TaskSet
-            | PLibrary Library
-
--- | A full set of Parameters is just a key-value map.
-type Parameters = Map.Map PLabel PValue
-
--- These wrapper functions are needed to extract the base Haskell types from
--- a Parameters map. They aren't used here but are used in, say, Simulation.hs.
-
--- | Extract A Double from a PDouble.
-fromPDouble :: PValue -> Maybe Double
-fromPDouble (PDouble d) = Just d
-fromPDouble _           = Nothing
-
--- | Extract A Bool from a PBool.
-fromPBool :: PValue -> Maybe Bool
-fromPBool (PBool b) = Just b
-fromPBool _         = Nothing
-
--- | Extract A Rational from a PRational.
-fromPRational :: PValue -> Maybe Rational
-fromPRational (PRational r) = Just r
-fromPRational _             = Nothing
-
--- | Extract A String from a PString.
-fromPString :: PValue -> Maybe String
-fromPString (PString s) = Just s
-fromPString _           = Nothing
-
--- | Extract A TaskSet from a PTaskSet.
-fromPTaskSet :: PValue -> Maybe TaskSet
-fromPTaskSet (PTaskSet t) = Just t
-fromPTaskSet _            = Nothing
-
--- | Extract A Library from a PLibrary.
-fromPLibrary :: PValue -> Maybe Library
-fromPLibrary (PLibrary l) = Just l
-fromPLibrary _            = Nothing
-
--- | Translate Configurator Values to Parameters PValues.
-cValueToPValue :: Maybe Value -> Maybe PValue
-cValueToPValue (Just (Bool   b)) = Just (PBool b)
-cValueToPValue (Just (String s)) = Just (PString $ unpack s)
-cValueToPValue (Just (Number n)) = Just (PRational $ n)
-cValueToPValue (Just (List  ls)) = Nothing
-cValueToPValue Nothing           = Nothing
+$(makeLenses ''Parameters)
 
 -- | Update the defaults with user-specified values.
-loadConfig :: Config -> IO Parameters
+loadConfig :: CT.Config -> IO Parameters
 loadConfig config = configToParameters config defaultParameters
 
 -- | Update a given parameter set with user-specified values.
-configToParameters :: Config -> Parameters -> IO Parameters
+configToParameters :: CT.Config -> Parameters -> IO Parameters
 configToParameters config params =
-    let maybeUpdate k p = do
+    let maybeBool l k p = do
             searchResult <- C.lookup config (pack k)
-            return $ maybe p 
-                           (\x -> Map.insert k x p)
-                           (grAppHack k $ cValueToPValue $ searchResult)
-        -- configurator only allows integer numbers, so we need to read
-        -- rationals if we want to use them.
-        grAppHack "grApp" (Just (PString s)) = Just (PDouble (read s))
-        grAppHack _ x = x
-    in return params                     >>= 
-       maybeUpdate "writeLog"            >>=
-       maybeUpdate "pruneGrammar"        >>=
-       maybeUpdate "sampleByEnumeration" >>=
-       maybeUpdate "frontierSize"        >>=
-       maybeUpdate "frontierSamples"     >>=
-       maybeUpdate "maxEvalTime"         >>=
-       maybeUpdate "rndSeed"             >>=
-       maybeUpdate "lambda"              >>=
-       maybeUpdate "pseudocounts"        >>=
-       maybeUpdate "prefix"              >>=
-       maybeUpdate "grApp"               >>=
-       maybeUpdate "nIters"
+            return $ maybe p (\(CT.Bool x) -> L.set l x p) searchResult
+        maybeString l k p = do
+            searchResult <- C.lookup config (pack k)
+            return $ maybe p (\(CT.String x) -> L.set l (unpack x) p) searchResult
+        maybeInt l k p = do
+            searchResult <- C.lookup config (pack k)
+            return $ maybe p (\(CT.Number x) -> L.set l (round x) p) searchResult
+        -- configurator numbers are integers, so we need to read the rationals.
+        maybeNumString l k p = do
+            searchResult <- C.lookup config (pack k)
+            return $ maybe p (\(CT.String x) -> L.set l (read $ unpack x) p) searchResult
+    in return params                                       >>= 
+       maybeBool writeLog            "writeLog"            >>=
+       maybeBool pruneGrammar        "pruneGrammar"        >>=
+       maybeBool sampleByEnumeration "sampleByEnumeration" >>=
+       maybeInt frontierSize         "frontierSize"        >>=
+       maybeInt frontierSamples      "frontierSamples"     >>=
+       maybeInt maxEvalTime          "maxEvalTime"         >>=
+       maybeInt rndSeed              "rndSeed"             >>=
+       maybeNumString lambda         "lambda"              >>=
+       maybeInt pseudocounts         "pseudocounts"        >>=
+       maybeString prefix            "prefix"              >>=
+       maybeNumString grApp          "grApp"               >>=
+       maybeInt nIters               "nIters"
 
 -- | The default Parameters
 defaultParameters :: Parameters
-defaultParameters = Map.fromList [
-    -- (T) log output (grammars, etc), (F) don't log
-    ("writeLog", PBool True),
-    -- (T) prune grammar to search more frontier with less accuracy, (F) don't
-    ("pruneGrammar", PBool False),
-    -- (T) sample by enumeration, (F) sample by true sampling
-    ("sampleByEnumeration", PBool True),
-    -- Max size of the frontier enumerated during the "E" step
-    ("frontierSize", PRational 1000),
-    -- Maximum number of samples drawn from the grammar
-    ("frontierSamples", PRational 20000),
-    -- Timeout for evaluations (in nanoseconds)
-    ("maxEvalTime", PRational 10000),
-    -- the random seed
-    ("rndSeed", PDouble 0),
-    -- lambda, the threshold productions must pass to be saved
-    ("lambda", PDouble 1),
-    -- pseudocounts for productions in the grammar
-    ("pseudocounts", PDouble 1),
-    -- Probability of an application in the seed grammar
-    ("grApp", PDouble (log 0.375)),
-    -- The number of iterations to run
-    ("nIters", PRational 10),
-    -- directory in which to log all output
-    ("prefix", PString ""),
-    -- the library of primitives in the seed grammar
-    ("grLibrary", PLibrary []),
-    -- all the tasks Strappy should attempt to hit
-    ("tasks", PTaskSet []) ]
+defaultParameters = Parameters {
+    _writeLog = True,
+    _pruneGrammar = False,
+    _sampleByEnumeration = True,
+    _frontierSize = 1000,
+    _frontierSamples = 20000,
+    _maxEvalTime = 10000,
+    _rndSeed = 0,
+    _lambda = 1.0,
+    _pseudocounts = 1,
+    _grApp = (log 0.375),
+    _nIters = 10,
+    _prefix = "",
+    _grLibrary = [],
+    _tasks = [] }
