@@ -165,3 +165,5 @@ logLikelihoodAppM gr@(Grammar gamma exprDistr) tp (App eL eR eTp) = do
 negInfty :: Double
 negInfty = read "-Infinity"
 
+productions :: Grammar -> (Set Expr)
+productions grammar = Set.fromList $ Map.keys $ grExprDistr grammar

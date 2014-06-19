@@ -19,12 +19,12 @@ import Data.Word
 import Pipes
 
 -- Strappy Imports --
-import Strappy.Expr
-import Strappy.Library
+import Strappy.Core.Expr
+import Strappy.Core.Library
+import Strappy.Core.Task
+import Strappy.Core.Type
 import Strappy.Parameters
 import Strappy.Simulation
-import Strappy.Task
-import Strappy.Type
 
 -- | A small collection of combinators for boolean learning.
 library :: Library
@@ -53,4 +53,4 @@ tasks config = [ (makeTask config "and"  (&&)),
 
 -- | A toy example to demonstrate how easily simulations can be built.
 main :: IO ()
-main = runSimulation "./examples/example-config" Main.tasks library (B8.putStrLn)
+main = simulate "./examples/example-config" Main.tasks library (B8.putStrLn)

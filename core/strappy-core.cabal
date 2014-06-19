@@ -47,12 +47,12 @@ cabal-version:       >=1.10
 
 library
   -- Modules exported by the library.
-  exposed-modules: Strappy.Type, 
-                   Strappy.Expr,
-                   Strappy.Library,
+  exposed-modules: Strappy.Core.Type, 
+                   Strappy.Core.Expr,
+                   Strappy.Core.Library,
+                   Strappy.Logging,
                    Strappy.Parameters,
                    Strappy.Simulation,
-                   Strappy.IterativeDeepening,
                    Numeric.StatsUtils,
                    Numeric.ApproxEq
   
@@ -85,7 +85,6 @@ library
                  containers,
                  criterion        >= 0.6.0.0,
                  data-timeout     >= 0.3,
-                 deepseq          >= 1.3.0.1
                  deepseq          >= 1.3.0.1,
                  directory        >= 1.2.0.1,
                  ghc-prim         >= 0.3.0.0,
