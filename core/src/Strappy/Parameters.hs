@@ -41,8 +41,8 @@ import           Data.Text
 import           Data.Word
 
 -- Strappy imports --
-import Strappy.Expr
-import Strappy.Task
+import Strappy.Core.Expr
+import Strappy.Core.Task
 
 -- | Parameters is a product type holding configuration data for Strappy.
 data Parameters = Parameters {
