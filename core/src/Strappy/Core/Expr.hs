@@ -45,7 +45,7 @@ module Strappy.Core.Expr (
   charToExpr
   ) where
 
--- | External Imports | --------------------------------------------------------
+-- External imports --
 import Control.Concurrent.Timeout (timeout)
 import Control.Exception
 import Control.Monad
@@ -53,18 +53,18 @@ import Control.Monad.Error.Class
 import Criterion (nf, run)
 import Data.Hashable
 import Data.String (IsString)
-import qualified Data.Text as T
 import Data.Timeout (Timeout(..))
 import Data.Word
 import System.IO.Unsafe
 import Unsafe.Coerce (unsafeCoerce)
 import qualified Data.Aeson as A
+import qualified Data.Text as T
 
--- | Strappy Imports | ---------------------------------------------------------
+-- Strappy imports --
 import Strappy.Core.Type
 import Numeric.StatsUtils
 
--- | Expression Data Type | ----------------------------------------------------
+-- Expression Data Type ----------------------------------------------------
 data Expr = forall a.
             Term {eName  :: String, 
                   eType  :: Type, 
