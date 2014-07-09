@@ -8,12 +8,14 @@
 --
 -- | Useful functions for logging to JSON with Pipes
 
-module Strappy.Logging (
-    -- * Logging Functions
-    openLog,
-    logMessage,
-    logGrammar,
-    closeLog
+module Strappy.Logging
+    ( Logger(..)
+    , evalLogger
+      -- * Logging Functions
+    , openLog
+    , logMessage
+    , logGrammar
+    , closeLog
     ) where
 
 -- External Imports --
@@ -28,6 +30,12 @@ import           Pipes
 -- Strappy imports --
 import Strappy.Core.Expr
 import Strappy.Core.Grammar
+
+-- | The Logger is a simple type synonym for logging bytestrings
+type Logger = Producer B.ByteString IO
+
+-- | Peel the logging layer off the underlying monad.
+evalLogger f logFn = runEffect $ for f (lift . logFn)
 
 -- | LogValues help provide named JSON objects for logging.
 data (LogValue a) = LogValue String a
@@ -44,23 +52,23 @@ instance (A.FromJSON a) => A.FromJSON (LogValue a) where
      parseJSON _          = mzero
 
 -- | logThis sends some JSON value to the log.
-logThis :: (Monad m, A.ToJSON a) => String -> a -> Producer B.ByteString m ()
+logThis :: (A.ToJSON a) => String -> a -> Logger ()
 logThis t v = yield $ B.append (AP.encodePretty $ LogValue t v) (B8.pack ",")
 
 -- | logMessages sends a Message to the log.
-logMessage :: (Monad m) => String -> Producer B.ByteString m ()
+logMessage :: String -> Logger ()
 logMessage s = logThis "message" s
 
 -- | logGrammar sends a Grammar to the log.
-logGrammar :: (Monad m) => Grammar -> Producer B.ByteString m ()
+logGrammar :: Grammar -> Logger ()
 logGrammar g = logThis "grammar" g
 
 -- | openLog opens the JSON array we're writing.
-openLog :: (Monad m) => Producer B.ByteString m ()
+openLog :: Logger ()
 openLog = yield (B8.pack "[")
 
 -- | closeLog closes the JSON array we're writing.
-closeLog :: (Monad m) => Producer B.ByteString m ()
+closeLog :: Logger ()
 closeLog =
     let finalValue = LogValue "message" "Finished!"
     in yield $ B.append (AP.encodePretty finalValue) (B8.pack "\n]")

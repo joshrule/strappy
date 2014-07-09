@@ -6,110 +6,77 @@
 -- Maintainer:  Eyal Dechter <edechter@mit.edu>
 -- Stability:   experimental
 --
--- | This module provides a single interface to three different ways one might
--- generate programs from a probabilistic grammar: true probabilistic sampling,
--- iterative deepening, and program enumeration.
+-- | This module probabilistically samples programs from a grammar.
 
-{-# LANGUAGE TupleSections  #-}
-module Strappy.Core.Sample where
+module Strappy.Core.Sample (sampleExprs) where
 
+-- External imports --
+import Control.Arrow (second)
+import Control.Exception 
+import Control.Monad.Error
 import Control.Monad.Identity
-import Control.Monad.State
 import Control.Monad.Maybe
 import Control.Monad.Random
-import Control.Exception 
-import Control.Arrow (second)
+import Control.Monad.State
 import qualified Data.Map as Map
-import Debug.Trace
+import Data.Either.Combinators (fromRight')
 import Data.Maybe
+import Data.String (IsString)
 
-import Strappy.Core.EnumBF
-import Strappy.Core.EnumBits
+-- Strappy imports --
+import Numeric.StatsUtils
 import Strappy.Core.Expr
-import Strappy.Core.Library
+import Strappy.Core.Grammar
 import Strappy.Core.Type
-import Strappy.Parameters
 
--- | Generate sets of programs matching the requested types from a TaskSet
-sampleFrontiers :: Parameters -> TaskSet -> Grammar -> [(Type,ExprMap Double)]
-sampleFrontiers config tasks grammar = map (\tp -> sample config grammar tp >>= return . (tp,)) $ nub (map taskType tasks)
+type PotentiallyFailedSample m = ErrorT String m 
 
-----------------------------------------------------------------------
-----------------------------------------------------------------------
--- Main functions. 
-sampleExpr ::
-  (MonadPlus m, MonadRandom m) => Grammar -> Type -> m Expr
--- | Samples a combinator of type t from a stochastic grammar G. 
-sampleExpr Grammar{grApp=p, grExprDistr=exprDistr} requestedType 
-    = runTI $ do initializeTI exprDistr
-                 tp' <- instantiateType requestedType
-                 expr <- sample tp'
-                 return expr
-    where 
-      sample tp = do
-            shouldExpand <- lift $ flipCoin (exp p)
-            case shouldExpand of
-              True -> do t <- mkTVar
-                         e_left  <- sample (t ->- tp)
-                         t' <- applySub t
-                         e_right <- sample t'
-                         tp' <- applySub tp
-                         return $
-                           App { eReqType = Just tp,
-                                 eLogLikelihood = Nothing,
-                                 eType = tp',
-                                 eLeft = e_left,
-                                 eRight = e_right }
-              False -> do let cs = filter (\(e, _) -> canUnifyFast tp (eType e)) $
-                                   Map.toList exprDistr
-                          when (null cs) $ lift $ fail "Unable to find matching type"
-                          e <- lift $ sampleMultinomial $ map (second exp) $   
-                               normalizeDist cs
-                          eTp <- instantiateType (eType e)
-                          unify eTp tp
-                          annotateRequestedM tp e
+-- | Wrapper over safeSample that collects many samples into a single frontier.
+sampleExprs :: (MonadRandom m) => Int -> Int -> Grammar -> Type -> m (ExprMap Double)
+sampleExprs frontierSize maxSamples g tp =
+    liftM (Map.mapWithKey reweight) $ foldM accSample Map.empty [1..maxSamples]
+  where
+    accSample acc _ | Map.size acc >= frontierSize = return acc
+    accSample acc x = do
+        expr <- safeSample g tp
+        return $ Map.insertWith (+) expr 1 acc
+    reweight expr cnt = -- weight = log(timesSampled(Expr) * p(expr))
+        log (fromIntegral cnt) + (fromRight' (exprLogLikelihood g tp expr))
 
--- | Wrapper over sampleExpr that keeps trying to sample when it fails
-safeSample :: MonadRandom m => Grammar -> Type -> m Expr
+-- | Wrapper over sampleExpr that recovers from failed samples.
+safeSample :: (MonadRandom m) => Grammar -> Type -> m Expr
 safeSample gr tp = do
-  maybeSample <- runMaybeT $ sampleExpr gr tp
-  case maybeSample of
-    Nothing -> safeSample gr tp
-    Just s -> return s
+    result <- runErrorT (sampleExpr gr tp)
+    case (result) of
+        (Left   err)  -> safeSample gr tp -- TODO: log error string here
+        (Right  expr) -> return expr
 
-sampleExprs :: (MonadPlus m, MonadRandom m) =>
-               Int -> Grammar -> Type -> m (ExprMap Double)
-sampleExprs n library tp =
-  liftM (Map.mapWithKey reweight) $ foldM accSample Map.empty [1..frontierSamples]
-  where accSample acc _ | Map.size acc >= n = return acc
-        accSample acc x = do
-          expr <- safeSample library tp
-          return $ Map.insertWith (+) expr 1 acc
-        reweight expr cnt =
-          log (fromIntegral cnt) + (if usePCFGWeighting
-                                    then let pcfg = fromJust $ eLogLikelihood $ pcfgLogLikelihood library expr
-                                             ijcai = fromJust $ eLogLikelihood $ ijcaiLogLikelihood library expr
-                                         in pcfg - ijcai
-                                    else 0.0)
-
--- | Uses breadth-first enumeration to "sample" a grammar
--- This allows us to get many more programs
--- Each program keys its log likelihood
-sampleBF :: Int -> Grammar -> Type -> ExprMap Double
-sampleBF n gr tp =
-  Map.fromList $ enumBF gr n tp
-
--- | Monadic wrapper
-sampleBFM :: Monad m => Int -> Grammar -> Type -> m (ExprMap Double)
-sampleBFM n gr tp = return $ sampleBF n gr tp
-
--- | Uses encoding enumeration (enumeration of bits) to "sample" a grammar
-sampleBits :: Int -> Grammar -> Type -> ExprMap Double
-sampleBits n gr tp =
-  Map.fromList $ map (\e -> let e' = exprLogLikelihood gr $ annotateRequested' tp e
-                            in (e', fromJust $ eLogLikelihood e'))
-               $ enumBits gr n tp
-
--- | Monadic wrapper
-sampleBitsM :: Monad m => Int -> Grammar -> Type -> m (ExprMap Double)
-sampleBitsM n gr tp = return $ sampleBits n gr tp
+-- | Sample an expression of a requested type from a stochastic grammar.
+sampleExpr :: (MonadRandom m) => Grammar -> Type -> PotentiallyFailedSample m Expr
+sampleExpr Grammar{grApp=p, grExprDistr=exprDistr} requestedType =
+    evalTI $ do
+        initializeTI exprDistr
+        tp' <- instantiateType requestedType
+        sample tp'
+  where 
+    sample tp = do
+        shouldExpand <- lift $ lift $ flipCoin (exp p)
+        case shouldExpand of
+            True -> do
+                t <- mkTVar
+                e_left  <- sample (t ->- tp)
+                t' <- applySub t
+                e_right <- sample t'
+                tp' <- applySub tp
+                return $ App 
+                    { eType = tp'
+                    , eLeft = e_left
+                    , eRight = e_right }
+            False -> do 
+                cs <- filterM (\(e, _) -> canUnify tp (eType e)) $
+                                 Map.toList exprDistr
+                when (null cs) $ lift $ throwError $ strMsg "sampleExpr: Unable to find matching type"
+                e <- lift $ lift $ sampleMultinomial $ map (second exp) (normalizeDist cs)
+                eTp <- instantiateType (eType e)
+                unify eTp tp
+                return $ e { eType = tp }

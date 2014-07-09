@@ -16,16 +16,17 @@ module Strappy.Parameters (
     loadConfig,
     configToParameters,
     -- * access
+    grab,
     writeLog,
     pruneGrammar,
-    sampleByEnumeration,
-    frontierSize,
-    frontierSamples,
+    generator,
+    nFrontier,
+    nSamples,
     maxEvalTime,
     rndSeed,
     lambda,
     pseudocounts,
-    grApp,
+    grPApp,
     nIters,
     prefix,
     grLibrary,
@@ -34,7 +35,9 @@ module Strappy.Parameters (
 
 -- External imports --
 import qualified Control.Lens as L
+import           Control.Lens.Getter (Getting)
 import           Control.Lens.TH
+import           Control.Monad.State
 import qualified Data.Configurator as C
 import qualified Data.Configurator.Types as CT
 import           Data.Text
@@ -51,11 +54,11 @@ data Parameters = Parameters {
     -- (T) prune grammar to search more frontier with less accuracy, (F) don't
     _pruneGrammar :: Bool,
     -- (T) sample by enumeration, (F) sample by true sampling
-    _sampleByEnumeration :: Bool,
+    _generator :: String,
     -- Max size of the frontier enumerated during the "E" step
-    _frontierSize :: Int,
+    _nFrontier :: Int,
     -- Maximum number of samples drawn from the grammar
-    _frontierSamples :: Int,
+    _nSamples :: Int,
     -- Timeout for evaluations (in nanoseconds)
     _maxEvalTime :: Word64,
     -- the random seed
@@ -65,7 +68,7 @@ data Parameters = Parameters {
     -- pseudocounts for productions in the grammar
     _pseudocounts :: Int,
     -- Probability of an application in the seed grammar
-    _grApp :: Double,
+    _grPApp :: Double,
     -- The number of iterations to run
     _nIters :: Int,
     -- directory in which to log all output
@@ -75,6 +78,7 @@ data Parameters = Parameters {
     -- all the tasks Strappy should attempt to hit
     _tasks :: TaskSet }
 
+-- TemplateHaskell call to create the Lenses
 $(makeLenses ''Parameters)
 
 -- | Update the defaults with user-specified values.
@@ -84,47 +88,52 @@ loadConfig config = configToParameters config defaultParameters
 -- | Update a given parameter set with user-specified values.
 configToParameters :: CT.Config -> Parameters -> IO Parameters
 configToParameters config params =
-    let maybeBool l k p = do
-            searchResult <- C.lookup config (pack k)
-            return $ maybe p (\(CT.Bool x) -> L.set l x p) searchResult
-        maybeString l k p = do
-            searchResult <- C.lookup config (pack k)
-            return $ maybe p (\(CT.String x) -> L.set l (unpack x) p) searchResult
-        maybeInt l k p = do
-            searchResult <- C.lookup config (pack k)
-            return $ maybe p (\(CT.Number x) -> L.set l (round x) p) searchResult
-        -- configurator numbers are integers, so we need to read the rationals.
-        maybeNumString l k p = do
-            searchResult <- C.lookup config (pack k)
-            return $ maybe p (\(CT.String x) -> L.set l (read $ unpack x) p) searchResult
-    in return params                                       >>= 
-       maybeBool writeLog            "writeLog"            >>=
-       maybeBool pruneGrammar        "pruneGrammar"        >>=
-       maybeBool sampleByEnumeration "sampleByEnumeration" >>=
-       maybeInt frontierSize         "frontierSize"        >>=
-       maybeInt frontierSamples      "frontierSamples"     >>=
-       maybeInt maxEvalTime          "maxEvalTime"         >>=
-       maybeInt rndSeed              "rndSeed"             >>=
-       maybeNumString lambda         "lambda"              >>=
-       maybeInt pseudocounts         "pseudocounts"        >>=
-       maybeString prefix            "prefix"              >>=
-       maybeNumString grApp          "grApp"               >>=
-       maybeInt nIters               "nIters"
+    return params                         >>= 
+    maybeBool writeLog     "writeLog"     >>=
+    maybeBool pruneGrammar "pruneGrammar" >>=
+    maybeString generator  "generator"    >>=
+    maybeInt nFrontier     "nFrontier"    >>=
+    maybeInt nSamples      "nSamples"     >>=
+    maybeInt maxEvalTime   "maxEvalTime"  >>=
+    maybeInt rndSeed       "rndSeed"      >>=
+    maybeNumString lambda  "lambda"       >>=
+    maybeInt pseudocounts  "pseudocounts" >>=
+    maybeString prefix     "prefix"       >>=
+    maybeNumString grPApp  "grPApp"       >>=
+    maybeInt nIters        "nIters"
+  where
+    maybeBool l k p = do
+        searchResult <- C.lookup config (pack k)
+        return $ maybe p (\(CT.Bool x) -> L.set l x p) searchResult
+    maybeString l k p = do
+        searchResult <- C.lookup config (pack k)
+        return $ maybe p (\(CT.String x) -> L.set l (unpack x) p) searchResult
+    maybeInt l k p = do
+        searchResult <- C.lookup config (pack k)
+        return $ maybe p (\(CT.Number x) -> L.set l (round x) p) searchResult
+    -- configurator numbers are integers, so we need to read the rationals.
+    maybeNumString l k p = do
+        searchResult <- C.lookup config (pack k)
+        return $ maybe p (\(CT.String x) -> L.set l (read $ unpack x) p) searchResult
+
+-- | Shorthand for easily accessing Parameter values from the State monad.
+grab :: (MonadState s m) => Control.Lens.Getter.Getting a s a -> m a
+grab x = gets (L.view x)
 
 -- | The default Parameters
 defaultParameters :: Parameters
-defaultParameters = Parameters {
-    _writeLog = True,
-    _pruneGrammar = False,
-    _sampleByEnumeration = True,
-    _frontierSize = 1000,
-    _frontierSamples = 20000,
-    _maxEvalTime = 10000,
-    _rndSeed = 0,
-    _lambda = 1.0,
-    _pseudocounts = 1,
-    _grApp = (log 0.375),
-    _nIters = 10,
-    _prefix = "",
-    _grLibrary = [],
-    _tasks = [] }
+defaultParameters = Parameters
+    { _writeLog = True
+    , _pruneGrammar = False
+    , _generator = "probabilisticSampling"
+    , _nFrontier = 1000
+    , _nSamples = 20000
+    , _maxEvalTime = 10000
+    , _rndSeed = 0
+    , _lambda = 1.0
+    , _pseudocounts = 1
+    , _grPApp = (log 0.375)
+    , _nIters = 10
+    , _prefix = ""
+    , _grLibrary = []
+    , _tasks = [] }

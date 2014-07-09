@@ -23,6 +23,17 @@ import Strappy.Core.Library
 data Turn = L | R deriving (Show, Eq)
 type Path = [Turn] 
 
+-- | Uses breadth-first enumeration to "sample" a grammar
+-- This allows us to get many more programs
+-- Each program keys its log likelihood
+sampleBF :: Int -> Grammar -> Type -> ExprMap Double
+sampleBF n gr tp =
+  Map.fromList $ enumBF gr n tp
+
+-- | Monadic wrapper
+sampleBFM :: Monad m => Int -> Grammar -> Type -> m (ExprMap Double)
+sampleBFM n gr tp = return $ sampleBF n gr tp
+
 -- | An ADT corresponding to a ``solution base.'' See Pearl Heuristics
 -- book Chapter 2.
 data CombBase = CombBase {comb :: Expr, 

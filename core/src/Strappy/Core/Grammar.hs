@@ -9,46 +9,49 @@
 -- | This module defines data types and methods for distributions over
 -- expressions. Distributions are specified as weighted grammars.
 
-module Strappy.Core.Grammar (
-   -- * Grammar
-  Grammar(..),
-  normalizeGrammar,
-  getUnifyingPrims,
-  exprLogLikelihood,
-  -- * ExprMap        
-  ExprMap,
-  ExprDistr,
-  showExprDistr,
-     ) where
+module Strappy.Core.Grammar
+    ( -- * Grammar
+      Grammar(..)
+    , normalizeGrammar
+    , getUnifyingPrims
+    , exprLogLikelihood
+    , productions
+    , initExprDistr
+    , termOnlyGrammar
+      -- * ExprMap        
+    , ExprMap
+    , ExprDistr
+    , showExprDistr
+    , initializeTI
+    ) where
 
 -- External imports --
-import Data.Maybe 
-import qualified Data.Map as Map hiding ((\\))
-import Data.Set (Set())
-import qualified Data.Set as Set
-import Data.Hashable
-import GHC.Prim
-import Unsafe.Coerce (unsafeCoerce)
-import qualified Data.List as List
-import Data.List ((\\))
-import Text.Printf
-import Data.Function (on)
+import Control.Arrow (first)
+import Control.Monad.Error.Class
 import Control.Monad.Identity
 import Control.Monad.State
-import Control.Arrow (first)
-import Debug.Trace
-import Text.ParserCombinators.Parsec hiding (spaces)
-import System.Directory
+import Data.Function (on)
+import Data.Hashable
+import Data.List ((\\))
+import Data.Maybe 
+import Data.Set (Set())
 import Data.String (IsString)
-import Control.Monad.Error.Class
+import Debug.Trace
+import GHC.Prim
+import System.Directory
+import Text.ParserCombinators.Parsec hiding (spaces)
+import Text.Printf
+import Unsafe.Coerce (unsafeCoerce)
 import qualified Data.Aeson as A
+import qualified Data.List as List
+import qualified Data.Map as Map hiding ((\\))
+import qualified Data.Set as Set
 import qualified Data.Text as T
 
 -- Strappy imports -- 
+import Numeric.StatsUtils
 import Strappy.Core.Expr
 import Strappy.Core.Type
-import Numeric.StatsUtils
-
 
 -- | Type alias for hash table mapping expressions to values. 
 type ExprMap a = Map.Map Expr a
@@ -90,6 +93,17 @@ normalizeGrammar gr@Grammar{grApp=p, grExprDistr=distr} =
 --    let distr' = Map.fromList $ normalizeDist $ Map.toList distr
 --    in gr { grExprDistr = distr' }
 
+-- | Build an initial distribution for the seed grammar.
+initExprDistr :: Library -> ExprDistr
+initExprDistr lib = Map.fromList $ Prelude.zip lib [1,1..]
+
+-- | Remove non-terminals and put a uniform distribution over terminals.
+termOnlyGrammar :: Grammar -> Grammar
+termOnlyGrammar g = 
+    normalizeGrammar $ g { grExprDistr = initExprDistr leaves }
+  where
+    leaves = filter isTerm $ Map.keys (grExprDistr g)
+
 
 -- | Return the primitives in the grammar that unify with a given
 -- type. Expressions and their weights are returned with the current
@@ -99,6 +113,16 @@ getUnifyingPrims (Grammar gamma exprDistr) tp = do
   (e, w) <- Map.toList exprDistr
   return $ do unifyExpr tp e
               return (e, w)
+
+-- | Initializing a TypeInference monad with a Library. We need to
+-- grab all type variables in the library and make sure that the type
+-- variable counter in the state of the TypeInference monad is greater
+-- that that counter.
+initializeTI :: Monad m => ExprDistr -> TypeInference m ()
+initializeTI exprDistr = modify $ \(Context _ s) -> (Context (i+1) s)
+  where
+    i = maximum $ concatMap (getTVars . eType . fst)
+                            (Map.toList exprDistr)
 
 -- | Return the loglikelihood that the given expression would be
 -- produced under the given grammar if an expresssion of the type
