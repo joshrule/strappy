@@ -1,0 +1,24 @@
+
+-- saveBest fname fronts =
+--   let fronts' = map (\(nm, es) -> let es' = filter (\(_, (w, ll)) -> not (isNaN w) && not (isNaN ll) &&
+--                                                                      not (isInfinite w) && not (isInfinite ll))
+--                                                    $ Map.toList es
+--                                   in (nm, es')) fronts
+--       bestprogs = map (\(nm, front) -> if null front
+--                                        then (nm, Nothing)
+--                                        else (nm, 
+--                                              Just ((maximumBy (\(_, (w,ll)) (_, (w',ll')) -> compare (w+ll) (w'+ll')) front),
+--                                                    (maximumBy (\(_, (w,ll)) (_, (w',ll')) -> compare (ll) (ll')) front))))
+--                       fronts'
+--       str = flip map bestprogs $ \(nm, results) ->
+--                                  maybe ("Missed "++nm) (\((e1,(w1,ll1)),(e2,(w2,ll2))) -> nm ++ "\t" ++ show e1 ++ "\t" ++ show (w1+ll1) ++ "\t" ++ show e2 ++ "\t" ++ show ll2) results
+--   in writeFile fname (unlines str)
+-- 
+-- saveSpecified filename taskname fronts = 
+--   let hitFronts = map (\(nm, es) -> let es' = filter (\(_, (w, ll)) -> not (isNaN w) && not (isNaN ll) && not (isInfinite w) && not (isInfinite ll) && (ll > - 0.1))
+--                                                      $ Map.toList es
+--                                     in (nm, es'))
+--                       fronts
+--       front = concatMap (\(nm,es) -> if nm == taskname then es else []) hitFronts
+--       str = (show taskname) : (flip map front (\(e,(w,ll)) -> show e))
+--   in writeFile filename (unlines str)

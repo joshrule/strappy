@@ -5,7 +5,7 @@
 -- Maintainer:  Eyal Dechter <edechter@mit.edu>
 -- Stability:   experimental
 --
--- Numeric functions often needed for statistical applications. 
+-- | Numeric functions often needed for statistical applications. 
 
 module Numeric.StatsUtils (
     -- * Sampling functions
@@ -60,7 +60,6 @@ logSumExp x y = y + log (1 + exp (x-y))
 isInvalidNum :: Double -> Bool
 isInvalidNum x = isNaN x 
 
-
 -- | Calculates the entropy of a discrete distribution, given log
 -- probabilities
 entropyLogDist :: [Double] -> Double
@@ -86,10 +85,3 @@ logistic a b x = 1 / (1 + exp (-b * (x - a)))
 
 -- | Natural logarithm of 2
 log2 = log 2.0
-
-
-
-
-
-
-

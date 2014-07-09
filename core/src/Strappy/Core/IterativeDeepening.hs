@@ -13,34 +13,31 @@
 -- ----------
 -- [1] R. E. Korf. Depth-first iterative-deepening: An optimal admissible tree search. Artif. Intell., 27(1):97– 109, 1985.
 
+module Strappy.Core.IterativeDeepening where
 
-
-module Strappy.IterativeDeepening where
-
-import qualified Data.Map as Map
-import Control.Monad.Error
+-- External imports --
 -- import Control.Monad.Trans.Either
-import Control.Monad.List
 import Control.Arrow
+import Control.DeepSeq
+import Control.Exception
+import Control.Monad.Error
 import Control.Monad.Identity
+import Control.Monad.List
+import Control.Monad.State
+import Criterion.Main
+import qualified Data.Map as Map
+import Data.Maybe
 import Data.Monoid
 import Data.String (IsString)
-import Control.Monad.State
-import Data.Maybe
-
-import Strappy.Type 
-import Strappy.Expr
-import Strappy.Library
-import Strappy.Grammar
-
-import Numeric.StatsUtils
-
-import Control.DeepSeq
-import Criterion.Main
-
-import Control.Exception
-import System.IO.Unsafe
 import Debug.Trace 
+import System.IO.Unsafe
+
+-- Strappy imports --
+import Strappy.Core.Type
+import Strappy.Core.Expr
+import Strappy.Core.Grammar
+import Strappy.Core.Library
+import Numeric.StatsUtils
 
 eps :: Double
 eps = 1e-6
@@ -65,7 +62,6 @@ _DEBUG = True
 debug s x = if _DEBUG then trace s x else x
 traceThis s x = trace (s ++ ": " ++ show x) x
 debugThis s x = if _DEBUG then traceThis s x else x
-
 
 calculateLowerBound = undefined
 -- lowerBound :: Grammar -> Type -> Context -> Double -> Double 
@@ -102,11 +98,6 @@ idaStar gr tp ts = do
              let leaves = map (\((a, b), c) -> (a, b, c)) . filterIsRight . map (flip runStateT ctx) $ getUnifyingPrims gr tp
              return leaves
 
-             
-             
-                 
-                 
-  
 --          -> ([(Expr, -- ^ a complete expression
 --                Double, -- ^ the cost of the expressions
 --                Context -- ^ the final type context of the expression
@@ -153,7 +144,6 @@ idaStar gr tp ts = do
 
 -- showSearchResults out = unlines $ [show e ++ ": " ++ show d | (e, d) <- out]
 
-
 -- cbIterativeDeepening :: Grammar 
 --                      -> Int
 --                      -> Type 
@@ -165,7 +155,6 @@ idaStar gr tp ts = do
 --                    k = length res
 --                in if k >= n then map (\(a, b, _) -> (a, b)) res
 --                             else trace ("Running Iterative Deepening with bound: " ++ show b' ++ "; num progs: " ++ show k ) $ go (b' + eps)
-
 
 -- tp = tTriple (tList tChar) (tList tChar) (tList tInt) ->- (tList tInt)
 -- tp' = (tList tChar) ->- (tList tChar) ->- (tList tInt) ->- (tList tInt)
@@ -182,4 +171,3 @@ idaStar gr tp ts = do
 --   --  bench "cbSearchV3" $ nf (showCbSearchResults . cbSearchV3 seedGrammar 20 tp) (Context 0  Map.empty),
 --   --  bench "cbSearchV4" $ nf (showCbSearchResults . cbSearchV4 seedGrammar 20 tp (Context 0  Map.empty)) []
 --   --  ]
-

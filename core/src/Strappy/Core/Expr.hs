@@ -197,7 +197,6 @@ timeLimitedEval nanoSecs expr = unsafePerformIO $
                            run (nf show val) 1
                            return val
 
-
 -- | Runs type inference on the given expression, returning its
 -- type. This completely recalculates from the primitives.
 doTypeInference :: (IsString e, MonadError e m) => Expr -> m Type
